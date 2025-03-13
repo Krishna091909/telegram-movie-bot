@@ -1,47 +1,44 @@
-import json
 import asyncio
-import os
-import threading
-from flask import Flask
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, CallbackContext
+import logging
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
-# Bot Token and Owner ID
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load from Render environment variable
-OWNER_ID = 7743703095  # Your Telegram User ID
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# Flask App for Render Web Service
-app = Flask(__name__)
+# Replace this with your actual bot token
+BOT_TOKEN = "7903162641:AAFJkO5g6QzJnxUYwpLcaYUvaIHzC84mxvk"
 
-@app.route('/')
-def home():
-    return "Bot is running!"
+# Define the /start command handler
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Hello! Welcome to the Movie Bot 🎬. Send a movie name to get a download link.")
 
-async def start_bot():
+# Define a handler for text messages
+async def handle_message(update: Update, context: CallbackContext):
+    user_message = update.message.text
+    response = f"You searched for: {user_message}\nFetching movie link..."
+    await update.message.reply_text(response)
+
+# Define the main function to run the bot
+async def main():
     application = Application.builder().token(BOT_TOKEN).build()
-    
+
+    # Add command and message handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("addmovie", add_movie))
-    application.add_handler(CommandHandler("removemovie", remove_movie))
-    application.add_handler(CommandHandler("listmovies", list_movies))
-    application.add_handler(CommandHandler("getid", get_file_id))
-    application.add_handler(MessageHandler(filters.Document.ALL, get_file_id))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_movie_request))
-    application.add_handler(CallbackQueryHandler(send_movie))
-    
-    print("Bot is running...")
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Start polling
     await application.run_polling()
 
-async def main():
-    loop = asyncio.get_event_loop()
-    
-    # Run Flask server in a thread
-    flask_thread = threading.Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000))), daemon=True)
-    flask_thread.start()
-    
-    # Run Telegram bot
-    await start_bot()
+# Function to start the bot in a separate event loop
+def start_bot():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(main())
 
+# Run the bot
 if __name__ == "__main__":
-    asyncio.run(main())
+    start_bot()
