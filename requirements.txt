@@ -1,2 +1,3 @@
 flask
 gunicorn
+pytelegrambotapi  # Only if you're deploying a Telegram bot
