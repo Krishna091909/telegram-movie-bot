@@ -1,7 +1,27 @@
 {
-    "Scam 1992": "BQACAgUAAxkBAAMlZ9BliFS21Z15sqIpfZhA0c8JFx8AAgQQAAIN33BWPuUCdtxCYlI2BA",
-    "Your Fault": "BQACAgUAAxkBAAMjZ9BlRw-YkoM8m19HJpbk_k6ANrUAAn4PAAIN33BWvmqLe-moXJk2BA",
-    "Chhaava": "BQACAgUAAyEFAASQdNToAAMEZ8-dlvYo20CdEqbt2ENgWIwkB8EAAgEWAAIN33hW45Sa9mzfCOw2BA",
-    "Subservience": "BQACAgUAAyEFAASQdNToAAMGZ9Burmnc0aCxp-K2pn1z06PCrOMAAtQTAAJBt4lWV3BRhuomQSQ2BA",
-    "Baapu": "BQACAgUAAyEFAASQdNToAAMHZ9Bu-I2gIHpl8Yfn3Cm-CaQYJRwAAtUTAAJBt4lW1mZiPJOiMF82BA"
+    "Scam 1992": {
+        "file_id": "BQACAgUAAxkBAAMlZ9BliFS21Z15sqIpfZhA0c8JFx8AAgQQAAIN33BWPuUCdtxCYlI2BA",
+        "file_size": "700MB",
+        "file_name": "Scam 1992 HD.mp4"
+    },
+    "Your Fault": {
+        "file_id": "BQACAgUAAxkBAAMjZ9BlRw-YkoM8m19HJpbk_k6ANrUAAn4PAAIN33BWvmqLe-moXJk2BA",
+        "file_size": "450MB",
+        "file_name": "Your Fault (2023) HD.mp4"
+    },
+    "Chhaava": {
+        "file_id": "BQACAgUAAyEFAASQdNToAAMEZ8-dlvYo20CdEqbt2ENgWIwkB8EAAgEWAAIN33hW45Sa9mzfCOw2BA",
+        "file_size": "1.2GB",
+        "file_name": "Chhaava (2024) HD.mp4"
+    },
+    "Subservience": {
+        "file_id": "BQACAgUAAyEFAASQdNToAAMGZ9Burmnc0aCxp-K2pn1z06PCrOMAAtQTAAJBt4lWV3BRhuomQSQ2BA",
+        "file_size": "900MB",
+        "file_name": "Subservience (2024) HD.mp4"
+    },
+    "Baapu": {
+        "file_id": "BQACAgUAAyEFAASQdNToAAMHZ9Bu-I2gIHpl8Yfn3Cm-CaQYJRwAAtUTAAJBt4lW1mZiPJOiMF82BA",
+        "file_size": "393.94MB",
+        "file_name": "Baapu-Telugu-brt4c-2025.mp4"
+    }
 }
