@@ -29,13 +29,14 @@ async def help_command(update: Update, context: CallbackContext):
     commands = """
     ✅ Available Commands:
     /start - Start the bot
-    /addmovie <movie_name> <file_id> - Add a movie (Owner Only)
+    /addmovie <movie_name> <file_id> <file_size> <file_name> - Add a movie (Owner Only)
     /removemovie <movie_name> - Remove a movie (Owner Only)
     /listmovies - Show all movies (Owner Only)
+    /getid - Get File ID, Name & Size (Owner Only)
     """
     await update.message.reply_text(commands)
 
-# Delete messages from the group after a delay
+# Delete messages after a delay
 async def delete_message_later(message, delay=300):  # 5 minutes delay
     await asyncio.sleep(delay)
     try:
@@ -50,13 +51,15 @@ async def handle_movie_request(update: Update, context: CallbackContext):
     matched_movies = [key for key in movies.keys() if movie_name in key.lower()]
 
     if matched_movies:
-        keyboard = [[InlineKeyboardButton(name, callback_data=name)] for name in matched_movies]
+        keyboard = [
+            [InlineKeyboardButton(f"{movies[name]['file_size']} | {movies[name]['file_name']}", callback_data=name)]
+            for name in matched_movies
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         msg = await update.message.reply_text("🎬 Here is what I found for your query 👇:", reply_markup=reply_markup)
     else:
         msg = await update.message.reply_text("❌ Movie not found! Please check the spelling.")
     
-    # Delete only in groups
     if update.message.chat.type in ["group", "supergroup"]:
         asyncio.create_task(delete_message_later(msg))  # Delete after 5 mins
 
@@ -66,36 +69,55 @@ async def send_movie(update: Update, context: CallbackContext):
     await query.answer()
     movie_name = query.data
     movies = load_movies()
-    file_id = movies.get(movie_name)
+    movie_data = movies.get(movie_name)
 
-    if file_id:
-        user_id = query.from_user.id  # Get the user ID
-        await context.bot.send_document(chat_id=user_id, document=file_id, caption=f"🎬 {movie_name}")
+    if movie_data:
+        user_id = query.from_user.id  
+        file_id = movie_data["file_id"]
+        file_size = movie_data["file_size"]
+        file_name = movie_data["file_name"]
+
+        await context.bot.send_document(
+            chat_id=user_id, 
+            document=file_id, 
+            caption=f"🎬 *{file_name}*\n📦 *Size:* {file_size}",
+            parse_mode="Markdown"
+        )
         
-        # Send "Check your DM" message in the group
         msg = await query.message.reply_text("📩 Check your DM for the movie file!\n⚠️ This message will be deleted in 5 minutes.")
         
-        # Delete after 5 minutes
         if query.message.chat.type in ["group", "supergroup"]:
-            asyncio.create_task(delete_message_later(msg))  # Delete "Check your DM" message
+            asyncio.create_task(delete_message_later(msg))  
     else:
         await query.message.reply_text("❌ Movie not found.")
 
-# Add a movie (Owner Only)
 async def add_movie(update: Update, context: CallbackContext):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("🚫 You are not authorized to use this command.")
         return
 
     args = context.args
-    if len(args) < 2:
-        await update.message.reply_text("⚠️ Usage: /addmovie <movie_name> <file_id>")
+    if len(args) < 4:
+        await update.message.reply_text("⚠️ Usage: /addmovie <movie_name> <file_id> <file_size> <file_name>")
         return
 
-    movie_name = " ".join(args[:-1])
-    file_id = args[-1]
+    # Extract values correctly
+    movie_name = " ".join(args[:-3])  # Movie name (everything before the last 3 arguments)
+    file_id = args[-3]  # File ID (3rd last argument)
+    file_size = args[-2]  # File size (2nd last argument)
+    file_name = args[-1]  # File name (last argument)
+
+    # Ensure file size includes MB or GB
+    if not (file_size.endswith("MB") or file_size.endswith("GB")):
+        await update.message.reply_text("⚠️ File size must be in MB or GB format (e.g., 393.94MB or 1.5GB)")
+        return
+
     movies = load_movies()
-    movies[movie_name] = file_id
+    movies[movie_name] = {
+        "file_id": file_id,
+        "file_size": file_size,
+        "file_name": file_name
+    }
     save_movies(movies)
 
     await update.message.reply_text(f"✅ Movie '{movie_name}' added successfully!")
@@ -124,12 +146,12 @@ async def list_movies(update: Update, context: CallbackContext):
 
     movies = load_movies()
     if movies:
-        movie_list = "\n".join(movies.keys())
+        movie_list = "\n".join([f"{name} ({movies[name]['file_size']} | {movies[name]['file_name']})" for name in movies])
         await update.message.reply_text(f"📜 Movies List:\n{movie_list}")
     else:
         await update.message.reply_text("❌ No movies available.")
 
-# Get file ID (Owner Only)
+# Get file ID, Name & Size (Owner Only)
 async def get_file_id(update: Update, context: CallbackContext):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("🚫 You are not authorized to use this command.")
@@ -137,7 +159,13 @@ async def get_file_id(update: Update, context: CallbackContext):
 
     document = update.message.document
     if document:
-        await update.message.reply_text(f"File ID: `{document.file_id}`", parse_mode="Markdown")
+        file_size_bytes = document.file_size
+        file_size_mb = file_size_bytes / (1024 * 1024)  # Convert bytes to MB
+
+        await update.message.reply_text(
+            f"{document.file_name} {document.file_id} {file_size_mb:.2f}MB {document.file_name}",
+            parse_mode="Markdown"
+        )
     else:
         await update.message.reply_text("Please send a movie file.")
 
@@ -150,6 +178,7 @@ def main():
     app.add_handler(CommandHandler("addmovie", add_movie))
     app.add_handler(CommandHandler("removemovie", remove_movie))
     app.add_handler(CommandHandler("listmovies", list_movies))
+    app.add_handler(CommandHandler("getid", get_file_id))  # Added command handler for /getid
     app.add_handler(MessageHandler(filters.Document.ALL, get_file_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_movie_request))
     app.add_handler(CallbackQueryHandler(send_movie))
