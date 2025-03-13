@@ -1,11 +1,25 @@
 import json
 import asyncio
+import os
+import threading
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, CallbackContext
 
-# Bot Token
-BOT_TOKEN = "7903162641:AAFJkO5g6QzJnxUYwpLcaYUvaIHzC84mxvk"
+# Bot Token and Owner ID
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Load from Render environment variable
 OWNER_ID = 7743703095  # Your Telegram User ID
+
+# Flask App for Render Web Service
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def start_server():
+    port = int(os.environ.get("PORT", 5000))  # Default to port 5000
+    app.run(host='0.0.0.0', port=port)
 
 # Load movies from JSON file
 def load_movies():
@@ -24,7 +38,7 @@ def save_movies(movies):
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text("🎬 Send a movie name to get the download link.")
 
-# Show available commands
+# Help command
 async def help_command(update: Update, context: CallbackContext):
     commands = """
     ✅ Available Commands:
@@ -37,7 +51,7 @@ async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text(commands)
 
 # Delete messages after a delay
-async def delete_message_later(message, delay=300):  # 5 minutes delay
+async def delete_message_later(message, delay=300):
     await asyncio.sleep(delay)
     try:
         await message.delete()
@@ -59,9 +73,9 @@ async def handle_movie_request(update: Update, context: CallbackContext):
         msg = await update.message.reply_text("🎬 Here is what I found for your query 👇:", reply_markup=reply_markup)
     else:
         msg = await update.message.reply_text("❌ Movie not found! Please check the spelling.")
-    
+
     if update.message.chat.type in ["group", "supergroup"]:
-        asyncio.create_task(delete_message_later(msg))  # Delete after 5 mins
+        asyncio.create_task(delete_message_later(msg))
 
 # Handle movie selection and send file in DM
 async def send_movie(update: Update, context: CallbackContext):
@@ -87,10 +101,11 @@ async def send_movie(update: Update, context: CallbackContext):
         msg = await query.message.reply_text("📩 Check your DM for the movie file!\n⚠️ This message will be deleted in 5 minutes.")
         
         if query.message.chat.type in ["group", "supergroup"]:
-            asyncio.create_task(delete_message_later(msg))  
+            asyncio.create_task(delete_message_later(msg))
     else:
         await query.message.reply_text("❌ Movie not found.")
 
+# Add a movie (Owner Only)
 async def add_movie(update: Update, context: CallbackContext):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("🚫 You are not authorized to use this command.")
@@ -101,13 +116,11 @@ async def add_movie(update: Update, context: CallbackContext):
         await update.message.reply_text("⚠️ Usage: /addmovie <movie_name> <file_id> <file_size> <file_name>")
         return
 
-    # Extract values correctly
-    movie_name = " ".join(args[:-3])  # Movie name (everything before the last 3 arguments)
-    file_id = args[-3]  # File ID (3rd last argument)
-    file_size = args[-2]  # File size (2nd last argument)
-    file_name = args[-1]  # File name (last argument)
+    movie_name = " ".join(args[:-3])  
+    file_id = args[-3]  
+    file_size = args[-2]  
+    file_name = args[-1]  
 
-    # Ensure file size includes MB or GB
     if not (file_size.endswith("MB") or file_size.endswith("GB")):
         await update.message.reply_text("⚠️ File size must be in MB or GB format (e.g., 393.94MB or 1.5GB)")
         return
@@ -160,7 +173,7 @@ async def get_file_id(update: Update, context: CallbackContext):
     document = update.message.document
     if document:
         file_size_bytes = document.file_size
-        file_size_mb = file_size_bytes / (1024 * 1024)  # Convert bytes to MB
+        file_size_mb = file_size_bytes / (1024 * 1024)
 
         await update.message.reply_text(
             f"{document.file_name} {document.file_id} {file_size_mb:.2f}MB {document.file_name}",
@@ -169,8 +182,8 @@ async def get_file_id(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("Please send a movie file.")
 
-# Bot setup
-def main():
+# Run the bot
+def start_bot():
     app = Application.builder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
@@ -178,7 +191,7 @@ def main():
     app.add_handler(CommandHandler("addmovie", add_movie))
     app.add_handler(CommandHandler("removemovie", remove_movie))
     app.add_handler(CommandHandler("listmovies", list_movies))
-    app.add_handler(CommandHandler("getid", get_file_id))  # Added command handler for /getid
+    app.add_handler(CommandHandler("getid", get_file_id))
     app.add_handler(MessageHandler(filters.Document.ALL, get_file_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_movie_request))
     app.add_handler(CallbackQueryHandler(send_movie))
@@ -187,4 +200,5 @@ def main():
     app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    threading.Thread(target=start_bot).start()
+    threading.Thread(target=start_server).start()
