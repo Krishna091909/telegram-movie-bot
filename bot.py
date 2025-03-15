@@ -37,12 +37,25 @@ async def help_command(update: Update, context: CallbackContext):
     commands = """
     ✅ Available Commands:
     /start - Start the bot
+    /fileinfo - Get file details (File Name, Size, ID)
     /addmovie <movie_name> <file_id> <file_size> <file_name> - Add a movie (Owner Only)
     /removemovie <movie_name> - Remove a movie (Owner Only)
     /listmovies - Show all movies (Owner Only)
-    /getid - Get File ID, Name & Size (Owner Only)
     """
     await update.message.reply_text(commands)
+
+async def file_info(update: Update, context: CallbackContext):
+    document = update.message.document
+    if document:
+        file_size_bytes = document.file_size
+        file_size_mb = file_size_bytes / (1024 * 1024)  # Convert bytes to MB
+        file_name = document.file_name if document.file_name else "Unknown"
+        file_id = document.file_id
+        
+        response = f"{file_name} {file_id} {file_size_mb:.2f}MB {file_name}"
+        await update.message.reply_text(response)
+    else:
+        await update.message.reply_text("❌ Please send a document file.")
 
 async def delete_message_later(message, delay=300):
     await asyncio.sleep(delay)
@@ -158,6 +171,7 @@ def main():
     tg_app = Application.builder().token(BOT_TOKEN).build()
     tg_app.add_handler(CommandHandler("start", start))
     tg_app.add_handler(CommandHandler("help", help_command))
+    tg_app.add_handler(CommandHandler("fileinfo", file_info))
     tg_app.add_handler(CommandHandler("addmovie", add_movie))
     tg_app.add_handler(CommandHandler("removemovie", remove_movie))
     tg_app.add_handler(CommandHandler("listmovies", list_movies))
