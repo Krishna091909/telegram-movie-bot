@@ -1,13 +1,24 @@
 import json
 import asyncio
+from flask import Flask
+from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, CallbackContext
+
+# Flask web server to keep Render happy
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
 
 # Bot Token
 BOT_TOKEN = "7903162641:AAFJkO5g6QzJnxUYwpLcaYUvaIHzC84mxvk"
 OWNER_ID = 7743703095  # Your Telegram User ID
 
-# Load movies from JSON file
 def load_movies():
     try:
         with open("movies.json", "r") as file:
@@ -15,16 +26,13 @@ def load_movies():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-# Save movies to JSON file
 def save_movies(movies):
     with open("movies.json", "w") as file:
         json.dump(movies, file, indent=4)
 
-# Start command
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text("🎬 Send a movie name to get the download link.")
 
-# Show available commands
 async def help_command(update: Update, context: CallbackContext):
     commands = """
     ✅ Available Commands:
@@ -36,15 +44,13 @@ async def help_command(update: Update, context: CallbackContext):
     """
     await update.message.reply_text(commands)
 
-# Delete messages after a delay
-async def delete_message_later(message, delay=300):  # 5 minutes delay
+async def delete_message_later(message, delay=300):
     await asyncio.sleep(delay)
     try:
         await message.delete()
     except Exception as e:
         print(f"Failed to delete message: {e}")
 
-# Handle movie search in groups
 async def handle_movie_request(update: Update, context: CallbackContext):
     movies = load_movies()
     movie_name = update.message.text.lower()
@@ -61,9 +67,8 @@ async def handle_movie_request(update: Update, context: CallbackContext):
         msg = await update.message.reply_text("❌ Movie not found! Please check the spelling.")
     
     if update.message.chat.type in ["group", "supergroup"]:
-        asyncio.create_task(delete_message_later(msg))  # Delete after 5 mins
+        asyncio.create_task(delete_message_later(msg))
 
-# Handle movie selection and send file in DM
 async def send_movie(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -101,13 +106,11 @@ async def add_movie(update: Update, context: CallbackContext):
         await update.message.reply_text("⚠️ Usage: /addmovie <movie_name> <file_id> <file_size> <file_name>")
         return
 
-    # Extract values correctly
-    movie_name = " ".join(args[:-3])  # Movie name (everything before the last 3 arguments)
-    file_id = args[-3]  # File ID (3rd last argument)
-    file_size = args[-2]  # File size (2nd last argument)
-    file_name = args[-1]  # File name (last argument)
+    movie_name = " ".join(args[:-3])  
+    file_id = args[-3]  
+    file_size = args[-2]  
+    file_name = args[-1]  
 
-    # Ensure file size includes MB or GB
     if not (file_size.endswith("MB") or file_size.endswith("GB")):
         await update.message.reply_text("⚠️ File size must be in MB or GB format (e.g., 393.94MB or 1.5GB)")
         return
@@ -119,10 +122,8 @@ async def add_movie(update: Update, context: CallbackContext):
         "file_name": file_name
     }
     save_movies(movies)
-
     await update.message.reply_text(f"✅ Movie '{movie_name}' added successfully!")
 
-# Remove a movie (Owner Only)
 async def remove_movie(update: Update, context: CallbackContext):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("🚫 You are not authorized to use this command.")
@@ -138,7 +139,6 @@ async def remove_movie(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("❌ Movie not found!")
 
-# List all movies (Owner Only)
 async def list_movies(update: Update, context: CallbackContext):
     if update.message.from_user.id != OWNER_ID:
         await update.message.reply_text("🚫 You are not authorized to use this command.")
@@ -151,40 +151,20 @@ async def list_movies(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text("❌ No movies available.")
 
-# Get file ID, Name & Size (Owner Only)
-async def get_file_id(update: Update, context: CallbackContext):
-    if update.message.from_user.id != OWNER_ID:
-        await update.message.reply_text("🚫 You are not authorized to use this command.")
-        return
-
-    document = update.message.document
-    if document:
-        file_size_bytes = document.file_size
-        file_size_mb = file_size_bytes / (1024 * 1024)  # Convert bytes to MB
-
-        await update.message.reply_text(
-            f"{document.file_name} {document.file_id} {file_size_mb:.2f}MB {document.file_name}",
-            parse_mode="Markdown"
-        )
-    else:
-        await update.message.reply_text("Please send a movie file.")
-
-# Bot setup
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app_thread = Thread(target=run_flask)
+    app_thread.start()
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("addmovie", add_movie))
-    app.add_handler(CommandHandler("removemovie", remove_movie))
-    app.add_handler(CommandHandler("listmovies", list_movies))
-    app.add_handler(CommandHandler("getid", get_file_id))  # Added command handler for /getid
-    app.add_handler(MessageHandler(filters.Document.ALL, get_file_id))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_movie_request))
-    app.add_handler(CallbackQueryHandler(send_movie))
-    
+    tg_app = Application.builder().token(BOT_TOKEN).build()
+    tg_app.add_handler(CommandHandler("start", start))
+    tg_app.add_handler(CommandHandler("help", help_command))
+    tg_app.add_handler(CommandHandler("addmovie", add_movie))
+    tg_app.add_handler(CommandHandler("removemovie", remove_movie))
+    tg_app.add_handler(CommandHandler("listmovies", list_movies))
+    tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_movie_request))
+    tg_app.add_handler(CallbackQueryHandler(send_movie))
     print("Bot is running...")
-    app.run_polling()
+    tg_app.run_polling()
 
 if __name__ == "__main__":
     main()
